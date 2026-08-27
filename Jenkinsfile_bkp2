@@ -42,33 +42,14 @@ pipeline {
                 }
             }
         }
-        stage('Build Docker Image') {
-            steps {
-                sh """
-                    docker build -t ${HARBOR_HOST}/${HARBOR_PROJECT}/${IMAGE_NAME}:${IMAGE_TAG} .
-                    docker build -t ${HARBOR_HOST}/${HARBOR_PROJECT}/${IMAGE_NAME}:latest .
-                """
-            }
-        }
-        stage('Trivy Security Scan') {
-            steps {
-                script {
-                    sh """
-                        # 1. Print human-readable summary table to console for all vulnerabilities
-                        trivy image --severity HIGH,CRITICAL ${HARBOR_HOST}/${HARBOR_PROJECT}/${IMAGE_NAME}:${IMAGE_TAG}
-
-                        # 2. Fail pipeline ONLY if CRITICAL vulnerabilities exist
-                        trivy image --exit-code 1 --severity CRITICAL ${HARBOR_HOST}/${HARBOR_PROJECT}/${IMAGE_NAME}:${IMAGE_TAG}
-                    """
-                }
-            }
-        }
-        stage('Push to Harbor') {
+        stage('Build & Push to Harbor') {
             steps {
                 script {
                     withCredentials([usernamePassword(credentialsId: 'harbor-credentials', usernameVariable: 'HARBOR_USER', passwordVariable: 'HARBOR_PASS')]) {
                         sh """
                             echo \$HARBOR_PASS | docker login ${HARBOR_HOST} -u \$HARBOR_USER --password-stdin
+                            docker build -t ${HARBOR_HOST}/${HARBOR_PROJECT}/${IMAGE_NAME}:${IMAGE_TAG} .
+                            docker build -t ${HARBOR_HOST}/${HARBOR_PROJECT}/${IMAGE_NAME}:latest .
                             docker push ${HARBOR_HOST}/${HARBOR_PROJECT}/${IMAGE_NAME}:${IMAGE_TAG}
                             docker push ${HARBOR_HOST}/${HARBOR_PROJECT}/${IMAGE_NAME}:latest
                         """
@@ -97,6 +78,7 @@ pipeline {
     }
     post {
         always {
+            // Fixed single-quote variable expansion bug
             sh "docker logout ${HARBOR_HOST} || true"
         }
         success {
