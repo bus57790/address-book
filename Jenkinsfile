@@ -47,9 +47,9 @@ pipeline {
                 script {
                     withCredentials([usernamePassword(credentialsId: 'harbor-credentials', usernameVariable: 'HARBOR_USER', passwordVariable: 'HARBOR_PASS')]) {
                         sh """
+                            echo \$HARBOR_PASS | docker login ${HARBOR_HOST} -u \$HARBOR_USER --password-stdin
                             docker build -t ${HARBOR_HOST}/${HARBOR_PROJECT}/${IMAGE_NAME}:${IMAGE_TAG} .
                             docker build -t ${HARBOR_HOST}/${HARBOR_PROJECT}/${IMAGE_NAME}:latest .
-                            echo \$HARBOR_PASS | docker login ${HARBOR_HOST} -u \$HARBOR_USER --password-stdin
                             docker push ${HARBOR_HOST}/${HARBOR_PROJECT}/${IMAGE_NAME}:${IMAGE_TAG}
                             docker push ${HARBOR_HOST}/${HARBOR_PROJECT}/${IMAGE_NAME}:latest
                         """
@@ -62,12 +62,13 @@ pipeline {
                 script {
                     withCredentials([gitUsernamePassword(credentialsId: 'git-credentials', gitToolName: 'git-tool')]) {
                         sh """
+                            rm -rf address-book-gitops
                             git clone https://github.com/bus57790/address-book-gitops.git
                             cd address-book-gitops
-                            sed -i 's|image: .*|image: ${HARBOR_HOST}/${HARBOR_PROJECT}/${IMAGE_NAME}:${IMAGE_TAG}|g' k8s/deployment.yaml
+                            sed -i 's|image:.*|image: ${HARBOR_HOST}/${HARBOR_PROJECT}/${IMAGE_NAME}:${IMAGE_TAG}|g' k8s/deployment.yaml
                             git config user.name "Jenkins CI"
                             git config user.email "jenkins@yourdomain.com"
-                            git commit -am "chore: update image tag to ${IMAGE_TAG} [commit: ${env.GIT_COMMIT_HASH}]"
+                            git commit -am "chore: update image tag to ${IMAGE_TAG} [commit: ${env.GIT_COMMIT_HASH}]" || echo "No changes to commit"
                             git push origin main
                         """
                     }
@@ -77,7 +78,8 @@ pipeline {
     }
     post {
         always {
-            sh 'docker logout ${HARBOR_HOST} || true'
+            // Fixed single-quote variable expansion bug
+            sh "docker logout ${HARBOR_HOST} || true"
         }
         success {
             script {
