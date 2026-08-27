@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     environment {
-        HARBOR_HOST     = '192.168.1.184:9443'
+        HARBOR_HOST     = '100.123.72.116:9443'
         HARBOR_PROJECT  = 'address-book'
         IMAGE_NAME      = 'address-book-api'
         IMAGE_TAG       = "${BUILD_NUMBER}"
