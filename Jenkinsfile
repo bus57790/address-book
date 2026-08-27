@@ -88,10 +88,10 @@ pipeline {
         stage('Update GitOps Repo') {
             steps {
                 script {
-                    withCredentials([gitUsernamePassword(credentialsId: 'git-credentials', gitToolName: 'git-tool')]) {
+                    withCredentials([usernamePassword(credentialsId: 'git-credentials', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_TOKEN')]) {
                         sh """
                             rm -rf address-book-gitops
-                            git clone https://github.com/bus57790/address-book-gitops.git
+                            git clone https://${GIT_USER}:${GIT_TOKEN}@github.com/bus57790/address-book-gitops.git
                             cd address-book-gitops
                             sed -i 's|image:.*|image: ${HARBOR_HOST}/${HARBOR_PROJECT}/${IMAGE_NAME}:${IMAGE_TAG}|g' k8s/deployment.yaml
                             git config user.name "Jenkins CI"
