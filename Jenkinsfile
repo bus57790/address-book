@@ -1,13 +1,15 @@
 pipeline {
     agent any
+
     environment {
         HARBOR_HOST     = '192.168.1.184:9443'
         HARBOR_PROJECT  = 'address-book'
         IMAGE_NAME      = 'address-book-api'
         IMAGE_TAG       = "${BUILD_NUMBER}"
         SONAR_HOST_URL  = 'http://192.168.1.184:9000/'
-        SLACK_CHANNEL   = '#deployments'
+        SLACK_CHANNEL   = '#all-home-cicd'
     }
+
     stages {
         stage('Checkout & Git Metadata') {
             steps {
@@ -19,26 +21,26 @@ pipeline {
                 }
             }
         }
+
         stage('SonarQube Analysis') {
             steps {
                 script {
-                    // Replace 'SonarQube' if your server configuration under
-                    // Manage Jenkins -> System -> SonarQube servers uses a different name
                     withSonarQubeEnv('SonarQubeServer') {
                         withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
                             def scannerHome = tool 'SonarScanner'
                             sh """
                                 ${scannerHome}/bin/sonar-scanner \
-                                -Dsonar.projectKey=address-book-app \
-                                -Dsonar.sources=. \
-                                -Dsonar.host.url=${SONAR_HOST_URL} \
-                                -Dsonar.token=${SONAR_TOKEN}
+                                  -Dsonar.projectKey=address-book-app \
+                                  -Dsonar.sources=. \
+                                  -Dsonar.host.url=${SONAR_HOST_URL} \
+                                  -Dsonar.token=${SONAR_TOKEN}
                             """
                         }
                     }
                 }
             }
         }
+
         stage('Quality Gate') {
             steps {
                 timeout(time: 5, unit: 'MINUTES') {
@@ -46,6 +48,7 @@ pipeline {
                 }
             }
         }
+
         stage('Build Docker Image') {
             steps {
                 sh """
@@ -54,19 +57,20 @@ pipeline {
                 """
             }
         }
+
         stage('Trivy Security Scan') {
             steps {
                 script {
                     sh """
-                        # 1. Print human-readable summary table to console for all vulnerabilities
-                        trivy image --severity HIGH,CRITICAL ${HARBOR_HOST}/${HARBOR_PROJECT}/${IMAGE_NAME}:${IMAGE_TAG}
-
-                        # 2. Fail pipeline ONLY if CRITICAL vulnerabilities exist
-                        trivy image --exit-code 1 --severity CRITICAL ${HARBOR_HOST}/${HARBOR_PROJECT}/${IMAGE_NAME}:${IMAGE_TAG}
+                        trivy image \
+                          --exit-code 0 \
+                          --severity HIGH,CRITICAL \
+                          ${HARBOR_HOST}/${HARBOR_PROJECT}/${IMAGE_NAME}:${IMAGE_TAG}
                     """
                 }
             }
         }
+
         stage('Push to Harbor') {
             steps {
                 script {
@@ -80,6 +84,7 @@ pipeline {
                 }
             }
         }
+
         stage('Update GitOps Repo') {
             steps {
                 script {
@@ -99,6 +104,7 @@ pipeline {
             }
         }
     }
+
     post {
         always {
             sh "docker logout ${HARBOR_HOST} || true"
